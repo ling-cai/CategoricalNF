@@ -33,7 +33,7 @@ class LinearCategoricalEncoding(FlowLayer):
 		self.dataset_class = dataset_class
 		self.D = num_dimensions
 
-		self.embed_layer, self.vocab_size = create_embed_layer(vocab, vocab_size, default_embed_layer_dims)
+		self.embed_layer, self.vocab_size = create_embed_layer(vocab, vocab_size, default_embed_layer_dims) #create the embeding layer for each category;
 		self.num_categories = self.vocab_size
 	
 		self.prior_distribution = LogisticDistribution(mu=0.0, sigma=1.0) # Prior distribution in encoding flows
@@ -53,13 +53,15 @@ class LinearCategoricalEncoding(FlowLayer):
 			assert category_prior.shape[0] == self.num_categories, "[!] ERROR: Category prior needs to be of size [%i] but is %s" % (self.num_categories, str(category_prior.shape))
 			if isinstance(category_prior, np.ndarray):
 				category_prior = torch.from_numpy(category_prior)
-		self.register_buffer("category_prior", F.log_softmax(category_prior, dim=-1))
+		self.register_buffer("category_prior", F.log_softmax(category_prior, dim=-1)) # softmax --> prior distribution 
 		
 
 	def forward(self, z, ldj=None, reverse=False, beta=1, delta=0.0, channel_padding_mask=None, **kwargs):
 		## We reshape z into [batch, 1, ...] as every categorical variable is considered to be independent.
+		print("before z.shape\n", z.shape)
 		batch_size, seq_length = z.size(0), z.size(1)
 		z = z.reshape((batch_size * seq_length, 1) + z.shape[2:])
+		print("after z.shape\n", z.shape)
 		if channel_padding_mask is not None:
 			channel_padding_mask = channel_padding_mask.reshape(batch_size * seq_length, 1, -1)
 		else:
@@ -135,7 +137,7 @@ class LinearCategoricalEncoding(FlowLayer):
 
 	def _flow_forward(self, z_cont, z_categ, reverse, **kwargs):
 		ldj = z_cont.new_zeros(z_cont.size(0), dtype=torch.float32)
-		embed_features = self.embed_layer(z_categ)
+		embed_features = self.embed_layer(z_categ) # this is the lookup step
 		
 		for flow in (self.flow_layers if not reverse else reversed(self.flow_layers)):
 			z_cont, ldj = flow(z_cont, ldj, ext_input=embed_features, reverse=reverse, **kwargs)

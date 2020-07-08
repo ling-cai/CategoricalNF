@@ -7,7 +7,7 @@ def get_adjacency_indices(num_nodes, length):
 	x_indices2 = torch.LongTensor([j for i in range(num_nodes) for j in range(i+1, num_nodes)]).to(length.device)
 
 	mask_valid = (x_indices1[None,:] < length[:,None]).float() * (x_indices2[None,:] < length[:,None]).float()
-	return mask_valid, (x_indices1, x_indices2)
+	return mask_valid, (x_indices1, x_indices2) # the shape of mask_valid is [batch_size, （37+1）*37/2]
 
 def adjacency2pairs(adjacency, length):
 	num_nodes = adjacency.shape[1]
@@ -18,7 +18,9 @@ def adjacency2pairs(adjacency, length):
 	x_flat_indices = x_indices1 + x_indices2*num_nodes
 	edge_pairs = adjacency.index_select(index=x_flat_indices, dim=1)
 	
-	return edge_pairs, (x_indices1, x_indices2), mask_valid
+	return edge_pairs, (x_indices1, x_indices2), mask_valid 
+	# get the lower triangle matrxi and strech it into a vector by column; remember that in their adjacency matrix the node index is determined by the nodes in compressed.npz file
+	# which means that the topleft part of the matrix is always true!
 
 def pairs2adjacency(num_nodes, pairs, length, x_indices):
 	x_indices1, x_indices2 = x_indices

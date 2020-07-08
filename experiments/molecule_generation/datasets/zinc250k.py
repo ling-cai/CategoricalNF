@@ -57,8 +57,8 @@ class Zinc250kDataset(data.Dataset):
 		idx = self.data_indices[idx]
 		nodes = Zinc250kDataset.DATASET_NODES[idx].astype(np.int64)
 		adjacency = Zinc250kDataset.DATASET_ADJENCIES[idx].astype(np.int64)
-		length = (nodes >= 0).sum().astype(np.int64)
-		nodes = nodes + (nodes == -1) # Setting padding to 0
+		length = (nodes >= 0).sum().astype(np.int64)# the number of real nodes
+		nodes = nodes + (nodes == -1) # Setting padding to 0 # nodes range from -1 - 9; 
 		return nodes, adjacency, length
 
 
@@ -69,9 +69,9 @@ class Zinc250kDataset(data.Dataset):
 			print("Loading Zinc250k dataset...")
 			data_arr = np.load(os.path.join(data_root, Zinc250kDataset.DATA_FILENAME))
 			nodes, adjacency = data_arr["nodes"], data_arr["adjacency"]
-			Zinc250kDataset.DATASET_NODES = nodes
-			Zinc250kDataset.DATASET_ADJENCIES = adjacency
-			print("Dataset loaded")
+			Zinc250kDataset.DATASET_NODES = nodes # shape: (249455, 38) --> -1 ~ 8 9 types of nodes; -1 denotes no node; they retrict a graph to have a fixed number of nodes [38];
+			Zinc250kDataset.DATASET_ADJENCIES = adjacency # shape: (249455, 38, 38) --> 3 types of bonds
+			print("Dataset loaded") 
 
 		if Zinc250kDataset.DATASET_VAL_IDX is None:
 			data_arr = np.load(os.path.join(data_root, Zinc250kDataset.IDX_FILENAME))

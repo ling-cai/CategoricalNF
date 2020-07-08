@@ -183,17 +183,17 @@ def find_largest_submolecule(nodes, adjacency):
 	adjacency = adjacency[largest_submolecule][:,largest_submolecule]
 	return nodes, adjacency
 
-def calculate_node_distribution(dataset_class):
+def calculate_node_distribution(dataset_class): # node_type distribution
 	node_distribution = dataset_class.DATASET_NODES[np.where(dataset_class.DATASET_NODES >= 0)]
-	node_count = np.bincount(node_distribution)
+	node_count = np.bincount(node_distribution) # The result of binning the input array. The length of out is equal to np.amax(x)+1. index is continuous and count per value
 	node_log_prob = np.log(node_count) - np.log(node_count.sum())
 	return node_log_prob
 
-def calculate_edge_distribution(dataset_class):
-	length_distribution = (dataset_class.DATASET_NODES >= 0).sum(axis=1).astype(np.int32)
-	edge_distribution = [((dataset_class.DATASET_ADJENCIES == i).sum(axis=2).sum(axis=1)/2).astype(np.int32) for i in range(1, dataset_class.num_edge_types()+1)]
+def calculate_edge_distribution(dataset_class): # relation type distribution; not sure why they used edge type from 1 to 3. should be 0 - 2
+	length_distribution = (dataset_class.DATASET_NODES >= 0).sum(axis=1).astype(np.int32) # for each graph, calculate the number of valid nodes
+	edge_distribution = [((dataset_class.DATASET_ADJENCIES == i).sum(axis=2).sum(axis=1)/2).astype(np.int32) for i in range(1, dataset_class.num_edge_types()+1)] # edge_type: 1, 2, 3
 	edge_count = np.array([d.sum() for d in edge_distribution])
-	edge_log_prob = np.log(edge_count) - np.log(edge_count.sum())
+	edge_log_prob = np.log(edge_count) - np.log(edge_count.sum()) 
 	return edge_log_prob
 
 
@@ -256,7 +256,7 @@ def visualize_molecule(mol, filename="test_img"):
 
 
 def calculate_length_prior(nodes):
-	length_distribution = (nodes >= 0).sum(axis=1).astype(np.int32)
+	length_distribution = (nodes >= 0).sum(axis=1).astype(np.int32) # get frequency distribution of the number of nodes in each graph 
 	length_count = np.bincount(length_distribution)
 	length_count = length_count.astype(np.float32) + 1e-5 # Smoothing to prevent log of zero
 	log_length_prior = np.log(length_count) - np.log(length_count.sum())

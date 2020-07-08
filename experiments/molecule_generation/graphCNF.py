@@ -39,8 +39,8 @@ class GraphCNF(FlowModel):
 	def _create_layers(self):
 		# Load global model params
 		self.max_num_nodes = self.dataset_class.max_num_nodes()
-		self.num_node_types = self.dataset_class.num_node_types()
-		self.num_edge_types = self.dataset_class.num_edge_types()
+		self.num_node_types = self.dataset_class.num_node_types() # entity type
+		self.num_edge_types = self.dataset_class.num_edge_types() # relation type
 		self.num_max_neighbours = self.dataset_class.num_max_neighbours()
 		# Prior distribution is needed here for edges
 		prior_config = get_param_val(self.model_params, "prior_distribution", default_val=dict())
@@ -53,15 +53,15 @@ class GraphCNF(FlowModel):
 	def _create_encoding_layers(self):
 		self.node_encoding = create_encoding(self.model_params["categ_encoding_nodes"], 
 											 dataset_class=self.dataset_class, 
-											 vocab_size=self.num_node_types,
+											 vocab_size=self.num_node_types, # 9 for zinc250k dataset; not include the one for virtual nodes;
 											 category_prior=self.dataset_class.get_node_prior(data_root="data/"))
 		self.edge_attr_encoding = create_encoding(self.model_params["categ_encoding_edges"], 
 												  dataset_class=self.dataset_class, 
-												  vocab_size=self.num_edge_types, # Removing the virtual edges here
+												  vocab_size=self.num_edge_types, #3 for zinc250k dataset; # Removing the virtual edges here
 												  category_prior=self.dataset_class.get_edge_prior(data_root="data/"))
 
-		self.encoding_dim_nodes = self.node_encoding.D
-		self.encoding_dim_edges = self.edge_attr_encoding.D
+		self.encoding_dim_nodes = self.node_encoding.D # seems like this is the dimension of node features;though in current case, encoding_dim_nodes is one, which is the node type
+		self.encoding_dim_edges = self.edge_attr_encoding.D # not very confident about this. will double check it
 
 		# Virtual edges are encoded by a single mixture
 		self.edge_virtual_encoding = LinearCategoricalEncoding(num_dimensions=self.encoding_dim_edges,
@@ -77,8 +77,8 @@ class GraphCNF(FlowModel):
 
 	def _create_step_flows(self):
 		## Get hyperparameters from model_params dictionary
-		hidden_size_nodes = get_param_val(self.model_params, "coupling_hidden_size_nodes", default_val=256)
-		hidden_size_edges = get_param_val(self.model_params, "coupling_hidden_size_edges", default_val=128)
+		hidden_size_nodes = get_param_val(self.model_params, "coupling_hidden_size_nodes", default_val=64)
+		hidden_size_edges = get_param_val(self.model_params, "coupling_hidden_size_edges", default_val=16)
 		num_flows = get_param_val(self.model_params, "coupling_num_flows", default_val="4,6,6")
 		num_flows = [int(k) for k in num_flows.split(",")]
 		hidden_layers = get_param_val(self.model_params, "coupling_hidden_layers", default_val=4)
@@ -98,12 +98,12 @@ class GraphCNF(FlowModel):
 		#- Step 1 flows -#
 		#----------------#
 
-		coupling_mask_nodes = CouplingLayer.create_channel_mask(self.encoding_dim_nodes, ratio=mask_ratio)
+		coupling_mask_nodes = CouplingLayer.create_channel_mask(self.encoding_dim_nodes, ratio=mask_ratio) # 1*self.encoding_dim_nodes, where the first half is 1 and the last half is 0.
 		step1_model_func = lambda c_out : RGCNNet(c_in=self.encoding_dim_nodes,
 													c_out=c_out,
 													num_edges=self.num_edge_types,
 													num_layers=hidden_layers[0],
-													hidden_size=hidden_size_nodes,
+													hidden_size=hidden_size_nodes, 
 													max_neighbours=self.dataset_class.num_max_neighbours(),
 													dp_rate=dropout,
 													rgc_layer_fun=RelationGraphConv)
@@ -176,7 +176,7 @@ class GraphCNF(FlowModel):
 			step2_flows += [
 				actnorm_layer(),
 				permut_layer(),
-				coupling_layer(step_idx=1)
+				coupling_layer(step_idx=1) # the second step forward they used EdgeGNN
 			]
 		self.step2_flows = nn.ModuleList(step2_flows)
 
@@ -185,7 +185,7 @@ class GraphCNF(FlowModel):
 			step3_flows += [
 				actnorm_layer(),
 				permut_layer(),
-				coupling_layer(step_idx=2)
+				coupling_layer(step_idx=2) # the last step forward they used attention network
 			]
 		self.step3_flows = nn.ModuleList(step3_flows)
 
@@ -197,6 +197,7 @@ class GraphCNF(FlowModel):
 
 	def _run_layer(self, layer, z, reverse, ldj, ldj_per_layer=None, **kwargs):
 		## Function to reduce output handling in main forward pass
+		# this function is used to map discrete categorical data into continuous data or only node-related flows
 		layer_res = layer(z, reverse=reverse, **kwargs)
 		if len(layer_res) == 2:
 			z, layer_ldj = layer_res 
@@ -205,7 +206,7 @@ class GraphCNF(FlowModel):
 			z, layer_ldj, detailed_layer_ldj = layer_res
 		if ldj_per_layer is not None:
 			ldj_per_layer.append(detailed_layer_ldj)
-		return z, ldj + layer_ldj
+		return z, ldj + layer_ldj # all the ldj is aggregated. z is the continous representation for each categorical choice.
 
 	def _run_node_edge_layer(self, layer, z_nodes, z_edges, reverse, ldj, ldj_per_layer=None, **kwargs):
 		## Function to reduce output handling in main forward pass
@@ -235,10 +236,11 @@ class GraphCNF(FlowModel):
 			# X_indices is a tuple, where each element has the size of the edge tensor and states the node indices of the corresponding edge
 			# Mask_valid is a tensor of the same size, but contains 0 for those edges that are not "valid".
 			# This is when edges are padding elements for graphs of different sizes 
+			# here z_edges_disc is the discrete type of edge type; its shape is [batch_size, (37+1)*37/2], mask_valid is to show the valid edges which should not contain any virtual node
 			z_edges_disc, x_indices, mask_valid = adjacency2pairs(adjacency=adjacency, length=length)
-			kwargs["mask_valid"] = mask_valid * (z_edges_disc != 0).to(mask_valid.dtype)
+			kwargs["mask_valid"] = mask_valid * (z_edges_disc != 0).to(mask_valid.dtype) # rule out the non-exisitng edges between valid nodes
 			kwargs["x_indices"] = x_indices
-			binary_adjacency = (adjacency > 0).long()
+			binary_adjacency = (adjacency > 0).long() # attention that adjacency matrix itself is type-specific matrix while binary matrix is proximity matrix
 			## Step 2 => Encode edge attributes in latent space and apply first EdgeGNN flows
 			z_nodes, z_edges, ldj = self._step2_forward(z_nodes, z_edges_disc, ldj, False, ldj_per_layer, 
 														binary_adjacency=binary_adjacency, **kwargs)
@@ -280,7 +282,7 @@ class GraphCNF(FlowModel):
 
 	def _step1_forward(self, z_nodes, adjacency, ldj, reverse, ldj_per_layer, **kwargs):
 		if not reverse:
-			## Encode node types
+			## Encode node types 
 			z_nodes, ldj = self._run_layer(self.node_encoding, z_nodes, reverse, ldj=ldj, ldj_per_layer=ldj_per_layer, **kwargs)
 			## Run first RGCN coupling layers with full adjacency matrix
 			for flow in self.step1_flows:
@@ -294,13 +296,15 @@ class GraphCNF(FlowModel):
 		return z_nodes, ldj
 
 	def _step2_forward(self, z_nodes, z_edges, ldj, reverse, ldj_per_layer, **kwargs):
+		# note that here actually z_nodes are continuous representations while z_edges are discrete data.
 		if not reverse:
 			## Encode edge attributes
 			kwargs_edge_embed = kwargs.copy()
-			kwargs_edge_embed["channel_padding_mask"] = kwargs["mask_valid"].unsqueeze(dim=-1)
-			z_attr = (z_edges-1).clamp(min=0)
+			kwargs_edge_embed["channel_padding_mask"] = kwargs["mask_valid"].unsqueeze(dim=-1) # shape: [batch_size, 37*(1+37)/2, 1]
+			z_attr = (z_edges-1).clamp(min=0) # clamp is to restrict the range of variable to being in [min, max]
 			z_edges, ldj = self._run_layer(self.edge_attr_encoding, z_attr, reverse, ldj, ldj_per_layer, **kwargs_edge_embed)
 			## Running node-edge coupling layers
+			# the input of nodes and edges are continuous representations
 			for flow in self.step2_flows:
 				z_nodes, z_edges, ldj = self._run_node_edge_layer(flow, z_nodes, z_edges, reverse, ldj, ldj_per_layer, **kwargs)
 		else:

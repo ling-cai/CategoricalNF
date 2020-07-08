@@ -284,7 +284,7 @@ def create_transformer_mask(length, max_len=None, dtype=torch.float32):
 
 def create_channel_mask(length, max_len=None, dtype=torch.float32):
 	mask = _create_length_mask(length=length, max_len=max_len, dtype=dtype)
-	mask = mask.unsqueeze(dim=-1) # Unsqueeze over channels
+	mask = mask.unsqueeze(dim=-1) # Unsqueeze over channels # the shape of mask is : [batch_size, max_len, 1]
 	return mask
 
 def create_T_one_hot(length, dataset_max_len, dtype=torch.float32):

@@ -12,6 +12,7 @@ from general.mutils import one_hot, get_device
 ## Node-based GNNs ##
 #####################
 
+# here they used different relations
 class RelationGraphConv(nn.Module):
 
 	def __init__(self, c_in, c_out, num_edges, **kwargs):
@@ -40,14 +41,14 @@ class RelationGraphConv(nn.Module):
 
 		hr_all = self.linear_hr(x)
 		hr_all =  hr_all.view( batch_size, num_nodes, 1,         self.num_edges, self.c_out)
-		adjacency = adjacency.view(batch_size, num_nodes, num_nodes, self.num_edges, 1         )
+		adjacency = adjacency.view(batch_size, num_nodes, num_nodes, self.num_edges, 1         ) # if there is no link between nodes, then the connections between nodes will be cancelled out. 
 
 		hr_adj = (hr_all * adjacency).sum(dim=[1,3]) # Shape: [batch_size, num_nodes, c_out]
 		hr     = hr_adj / num_neighbours.unsqueeze(dim=-1).clamp(min=1e-5)
 
-		h_out = hs + hr
+		h_out = hs + hr #the first is the self-loop while the second is the neighborhood aggregation 
 
-		return h_out
+		return h_out #[batch, #Nodes, c_out]
 
 
 class RelationGraphAttention(nn.Module):

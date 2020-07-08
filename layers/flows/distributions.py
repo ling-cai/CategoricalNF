@@ -21,7 +21,7 @@ class PriorDistribution(nn.Module):
 
 	def __init__(self, **kwargs):
 		super().__init__()
-		self.distribution = self._create_distribution(**kwargs)
+		self.distribution = self._create_distribution(**kwargs) # for logistic the distribution is uniform distribution and for gaussian, it is Gaussian
 
 
 	def _create_distribution(self, **kwargs):
@@ -89,8 +89,10 @@ class GaussianDistribution(PriorDistribution):
 
 
 class LogisticDistribution(PriorDistribution):
-
-
+	'''
+	logistic dsitribution can use inverse transform sampling to achive sampling as the inverse of the logistic distribution can be found.
+	the general idea is that we can generate a random variable from uniform distribution and then we use the inverse CDF of logisitic distribution to generate samples
+	'''
 	def __init__(self, mu=0.0, sigma=1.0, eps=1e-4, **kwargs):
 		sigma = sigma / 1.81 # STD of a logistic distribution is about 1.81 in default settings
 		super().__init__(mu=mu, sigma=sigma)
@@ -119,11 +121,11 @@ class LogisticDistribution(PriorDistribution):
 		if log_sigma is None:
 			log_sigma = sigma.log()
 		x = x.double()
-		z = -torch.log(x.reciprocal() - 1.)
-		ldj = -torch.log(x) - torch.log(1. - x)
+		z = -torch.log(x.reciprocal() - 1.) # the inverse of cdf
+		ldj = -torch.log(x) - torch.log(1. - x) # Here the derivative of the inverse of cdf
 		z, ldj = z.float(), ldj.float()
 		z = z * sigma + mu
-		ldj = ldj - log_sigma
+		ldj = ldj - log_sigma # because z is updated by sigma and mu.
 		return z, ldj
 
 	@staticmethod
@@ -132,15 +134,15 @@ class LogisticDistribution(PriorDistribution):
 			log_sigma = sigma.log()
 		x = (x - mu) / sigma
 		z = torch.sigmoid(x)
-		ldj = F.softplus(x) + F.softplus(-x) + log_sigma
+		ldj = F.softplus(x) + F.softplus(-x) + log_sigma # not sure here
 		return z, ldj
 
 
 	def sample(self, shape=None, return_ldj=False, temp=1.0):
-		samples = super().sample(shape=shape)
+		samples = super().sample(shape=shape) # sample a shape of 'shape' samples from uniform distribution [batch_size * hidden_size, 1, num_dims]
 		if shape[-1] != 1:
 			samples = samples.squeeze(dim=-1)
-		samples = ( samples * (1-self.eps) ) + self.eps/2
+		samples = ( samples * (1-self.eps) ) + self.eps/2 # not sure what this means
 		if temp == 1.0:
 			samples, sample_ldj = self._shift_x(samples)
 		else:

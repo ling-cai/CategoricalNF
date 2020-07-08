@@ -88,19 +88,17 @@ class TaskMoleculeGeneration(TaskTemplate):
 
 
 	def _preprocess_batch(self, batch, length_clipping=True):
-		x_in, x_adjacency, x_length = batch
-		if length_clipping:
+		x_in, x_adjacency, x_length = batch # the length is th number of real nodes in a graph excluding those virtual nodes
+		if length_clipping: # clipping virtual node part that exists in all the elements in one batch
 			max_len = x_length.max()
-			x_in = x_in[:,:max_len].contiguous()
+			x_in = x_in[:,:max_len].contiguous() # the size of x is [batch_size, max_len]
 			x_adjacency = x_adjacency[:,:max_len,:max_len].contiguous()
-		x_channel_mask = create_channel_mask(x_length, max_len=x_in.shape[1])
+		x_channel_mask = create_channel_mask(x_length, max_len=x_in.shape[1]) # the shape: [batch_size, max_len, 1]
 		return x_in, x_adjacency, x_length, x_channel_mask
-
 
 	def add_summary(self, writer, iteration, checkpoint_path=None):
 		super().add_summary(writer, iteration, checkpoint_path)
 		self.checkpoint_path = checkpoint_path
-
 
 	def initialize(self, num_batches=16):
 		if self.model.need_data_init():
@@ -116,7 +114,6 @@ class TaskMoleculeGeneration(TaskTemplate):
 		with torch.no_grad():
 			self._verify_permutation()
 			self.sample(sample_size=2)
-
 
 	def _verify_permutation(self):
 		with torch.no_grad():

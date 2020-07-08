@@ -112,7 +112,6 @@ class ExtActNormFlow(FlowLayer):
 			ext_out = ext_out.reshape(orig_shape + unique_outs.shape[-1:])
 			return ext_out
 
-
 	def forward(self, z, ldj=None, reverse=False, ext_input=None, channel_padding_mask=None, layer_share_dict=None, **kwargs):
 		if ldj is None:
 			ldj = z.new_zeros(z.size(0),)
@@ -124,7 +123,7 @@ class ExtActNormFlow(FlowLayer):
 			bias = z.new_zeros(z.size(0), z.size(1), z.size(2))
 			scales = bias
 		else:
-			nn_out = self._run_nn(ext_input)
+			nn_out = self._run_nn(ext_input) # use class conditional information to generate the scale and the t
 			bias, scales = nn_out.chunk(2, dim=2)
 			scales = torch.tanh(scales)
 		

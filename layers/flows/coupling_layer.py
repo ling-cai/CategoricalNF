@@ -108,8 +108,8 @@ class CouplingLayer(FlowLayer):
 		else:
 			c_masked = int(math.ceil(c_in * ratio))
 		c_unmasked = c_in - c_masked
-		mask = torch.cat([torch.ones(1, c_masked), torch.zeros(1, c_unmasked)], dim=1)
-		return mask
+		mask = torch.cat([torch.ones(1, c_masked), torch.zeros(1, c_unmasked)], dim=1) #the first half is masked while the second depends on the first half
+		return mask # for example, if c_in is 2, then mask is [[1, 0]]
 
 
 	@staticmethod

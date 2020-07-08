@@ -1,0 +1,11 @@
+python3 train.py --dataset zinc250k \
+                --max_iterations 150000 \
+                --batch_size 2 \
+                --encoding_dim_nodes 6 \
+                --encoding_dim_edges 2 \
+                --optimizer 4 \
+                --learning_rate 5e-4 \
+                --encoding_num_mixtures_nodes 2 \
+                --encoding_num_mixtures_edges 2 \
+                --checkpoint_path checkpoints/GraphCNF_zinc250k/ \
+                --cluster

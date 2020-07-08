@@ -20,13 +20,13 @@ def add_encoding_parameters(parser, postfix=""):
 	# Flow parameters
 	parser.add_argument("--encoding_num_flows" + postfix, help="Number of flows used in the embedding layer.", type=int, default=0)
 	parser.add_argument("--encoding_hidden_layers" + postfix, help="Number of hidden layers of flows used in the parallel embedding layer.", type=int, default=2)
-	parser.add_argument("--encoding_hidden_size" + postfix, help="Hidden size of flows used in the parallel embedding layer.", type=int, default=128)
-	parser.add_argument("--encoding_num_mixtures" + postfix, help="Number of mixtures used in the coupling layers (if applicable).", type=int, default=8)
+	parser.add_argument("--encoding_hidden_size" + postfix, help="Hidden size of flows used in the parallel embedding layer.", type=int, default=16)
+	parser.add_argument("--encoding_num_mixtures" + postfix, help="Number of mixtures used in the coupling layers (if applicable).", type=int, default=2)
 	
 	# Decoder parameters
 	parser.add_argument("--encoding_use_decoder" + postfix, help="If selected, we use a decoder instead of calculating the likelihood by inverting all flows.", action="store_true")
 	parser.add_argument("--encoding_dec_num_layers" + postfix, help="Number of hidden layers used in the decoder of the parallel embedding layer.", type=int, default=1)
-	parser.add_argument("--encoding_dec_hidden_size" + postfix, help="Hidden size used in the decoder of the parallel embedding layer.", type=int, default=64)
+	parser.add_argument("--encoding_dec_hidden_size" + postfix, help="Hidden size used in the decoder of the parallel embedding layer.", type=int, default=16)
 
 
 def encoding_args_to_params(args, postfix=""):
